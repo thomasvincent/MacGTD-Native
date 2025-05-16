@@ -1,0 +1,47 @@
+#!/bin/bash
+
+# Pre-commit hook for MacGTD-Native
+# This hook runs tests and verifies workflow files before allowing a commit
+
+echo "Running pre-commit checks..."
+
+# Check for xmllint
+if ! command -v xmllint > /dev/null; then
+    echo "Error: xmllint not found. Please install libxml2."
+    exit 1
+fi
+
+# Verify workflow files exist
+if [ ! -f "GTD-QuickCapture.workflow/Contents/info.plist" ] || [ ! -f "GTD-QuickCapture.workflow/Contents/document.wflow" ]; then
+    echo "Error: Workflow files are missing or incomplete."
+    exit 1
+fi
+
+# Validate XML syntax
+if ! xmllint --noout "GTD-QuickCapture.workflow/Contents/document.wflow" 2>/dev/null; then
+    echo "Error: XML validation failed for workflow file."
+    exit 1
+fi
+
+# Check for critical workflow components
+if ! grep -q "tell application \"Reminders\"" "GTD-QuickCapture.workflow/Contents/document.wflow"; then
+    echo "Error: Workflow is missing Reminders integration."
+    exit 1
+fi
+
+if ! grep -q "display notification" "GTD-QuickCapture.workflow/Contents/document.wflow"; then
+    echo "Error: Workflow is missing notification functionality."
+    exit 1
+fi
+
+# Run unit tests if they exist
+if [ -x "tests/test_workflow.sh" ]; then
+    echo "Running unit tests..."
+    if ! (cd tests && ./test_workflow.sh > /dev/null); then
+        echo "Error: Unit tests failed."
+        exit 1
+    fi
+fi
+
+echo "Pre-commit checks passed!"
+exit 0
